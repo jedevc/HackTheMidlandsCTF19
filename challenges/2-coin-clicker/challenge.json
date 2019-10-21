@@ -1,0 +1,22 @@
+{
+    "name": "Clicker",
+    "category": "challenge",
+    "description": [
+        "Yay! I've created a really fun game!",
+        "Try and get 13371337 points - yeah, I know it's a lot, but if you get them, I promise I'll give you the flag."
+    ],
+    "points": 1,
+    "flags": "HTM{w0w_7h47_W45_L075_0F_cl1cX}",
+    "files": [
+        "build/linux.zip",
+        "build/windows.zip"
+    ],
+    "requirements": [
+        "challenge/Login"
+    ],
+    "preset": null,
+    "scripts": {
+        "generate": "make all"
+    },
+    "extra": {}
+}

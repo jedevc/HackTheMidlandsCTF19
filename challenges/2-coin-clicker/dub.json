@@ -1,0 +1,12 @@
+{
+	"authors": [
+		"Justin Chadwell"
+	],
+	"copyright": "Copyright © 2019, Justin Chadwell",
+	"dependencies": {
+		"derelict-sdl2": "~>3.0.0-beta"
+	},
+	"description": "A simple hackable clicker game.",
+	"license": "MIT",
+	"name": "clicker"
+}

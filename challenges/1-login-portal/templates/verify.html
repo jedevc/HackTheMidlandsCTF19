@@ -1,0 +1,22 @@
+
+{% extends 'base.html' %}
+
+{% block content %}
+<form action="/verification" method="post" class="ui large form">
+    <div class="ui stacked segment">
+        <div class="field">
+            <div class="ui left icon input">
+                <i class="phone icon"></i>
+                <input type="text" name="phone" placeholder="Phone number">
+            </div>
+        </div>
+        <input type="submit" value="Call me" class="ui fluid large blue button">
+    </div>
+</form>
+<br>
+<form action="/logout" method="post" class="ui large form">
+    <div class="ui stacked segment">
+        <input type="submit" value="Logout" class="ui fluid large blue button">
+    </div>
+</form>
+{% endblock %}

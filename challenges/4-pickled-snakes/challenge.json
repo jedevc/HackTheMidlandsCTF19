@@ -1,0 +1,23 @@
+{
+    "name": "Pickled Snake",
+    "category": "challenge",
+    "description": [
+        "Hahaha! I've encrypted this file using my all-new encryption method!",
+        "Username: tom, Password: securityishard, Host: ..., Protocol: ?"
+    ],
+    "points": 1,
+    "flags": "HTM{7HerE5_4_5n4kE_1n_my_8007}",
+    "files": [],
+    "requirements": [
+        "challenge/Hidden"
+    ],
+    "preset": "docker",
+    "scripts": {
+        "generate": "python3 code.py"
+    },
+    "extra": {
+        "port": 2022,
+        "internal": 22,
+        "image": "ctf-snakes"
+    }
+}

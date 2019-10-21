@@ -1,0 +1,7 @@
+credentials/
+.terraform/
+*.tfstate*
+
+ctfd/
+
+ldc2-windows/

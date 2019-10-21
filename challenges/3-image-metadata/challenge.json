@@ -1,0 +1,18 @@
+{
+    "name": "Hidden",
+    "category": "challenge",
+    "description": "There's totally nothing hidden in this image.",
+    "points": 1,
+    "flags": "HTM{9A5P_7h3r3_aC7UallY_15}",
+    "files": [
+        "final.png"
+    ],
+    "requirements": [
+        "challenge/Clicker"
+    ],
+    "preset": null,
+    "scripts": {
+        "generate": "./generate.sh"
+    },
+    "extra": {}
+}

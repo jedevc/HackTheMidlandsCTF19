@@ -1,0 +1,452 @@
+#!/usr/bin/env python3
+
+import argparse
+import colorama
+import glob
+import json
+import os
+import re
+import requests
+import subprocess
+import sys
+import traceback
+from colorama import Fore, Style
+
+UPSTREAM = 'https://raw.githubusercontent.com/jedevc/mini-ctf-tool/master/ctftool'
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    subparsers = parser.add_subparsers()
+
+    create_parser = subparsers.add_parser('create', help='create a new challenge')
+    create_parser.set_defaults(func=create_challenge)
+    create_parser.add_argument('name', help='name of the challenge')
+    create_parser.add_argument('category', help='category of the challenge')
+    create_parser.add_argument('--path', help='path to the challenge')
+    create_parser.add_argument('--preset', help='challenge preset', choices=PRESETS.keys())
+
+    list_parser = subparsers.add_parser('list', help='list all challenges')
+    list_parser.add_argument('--path', action='append', help='path to the challenges')
+    list_parser.add_argument('--verbose', '-v', action='store_true', help='increase verbosity')
+    list_parser.set_defaults(func=list_challenges)
+
+    refresh_parser = subparsers.add_parser('refresh', help='format all config files')
+    refresh_parser.set_defaults(func=refresh_challenges)
+
+    run_parser = subparsers.add_parser('run', help='execute all scripts')
+    run_parser.add_argument('script', help='script to run')
+    run_parser.add_argument('--path', action='append', help='path of challenge to run')
+    run_parser.add_argument('--ignore-presets', action='store_true', help='ignore the preset scripts and do not run them')
+    run_parser.set_defaults(func=run_challenges)
+
+    upload_parser = subparsers.add_parser('upload', help='upload all challenges')
+    upload_parser.add_argument('url', help='base url of the CTFd instance')
+    upload_parser.add_argument('session', help='session cookie value')
+    upload_parser.add_argument('--path', action='append', help='path of challenge to upload')
+    upload_parser.add_argument('--insecure', '-k', action='store_true', help='do not check ssl certificates')
+    upload_parser.set_defaults(func=upload_challenges)
+
+    upgrade_parser = subparsers.add_parser('upgrade', help='upgrade ctftool')
+    upgrade_parser.set_defaults(func=upgrade)
+
+    args = parser.parse_args()
+    if hasattr(args, 'func'):
+        success = args.func(args)
+        if not success:
+            sys.exit(1)
+    else:
+        parser.print_help()
+
+
+def create_challenge(args):
+    path = args.path
+    if path is None:
+        path = os.path.join(args.category, args.name)
+        path = path.lower().replace(' ', '')
+
+    challenge = Challenge(args.name, args.category, path,
+                          preset=args.preset, extra=PRESET_EXTRA.get(args.preset, {}))
+    challenge.save()
+
+    return True
+
+
+def list_challenges(args):
+    cache = {}
+    for challenge in Challenge.load_all(args.path):
+        if challenge.category not in cache:
+            cache[challenge.category] = []
+
+        cache[challenge.category].append(challenge)
+
+    for category, challenges in cache.items():
+        for challenge in challenges:
+            print(f'[{challenge.category}] ', end='')
+            print(f'{Style.BRIGHT}{challenge.name}{Style.RESET_ALL} ', end='')
+            print(f'{Fore.LIGHTBLACK_EX}- {challenge.path}')
+            if args.verbose:
+                if len(challenge.description) > 1:
+                    INDENT = '\n\t\t'
+                    description = INDENT + INDENT.join(challenge.description)
+                else:
+                    description = challenge.description[0]
+
+                print(f'\tdescription: {description}')
+                print(f'\tpoints: {challenge.points}')
+                print(f'\tflags: {challenge.flags}')
+                print(f'\tfiles: {challenge.files}')
+
+    return True
+
+
+def refresh_challenges(args):
+    for challenge in Challenge.load_all():
+        challenge.save()
+
+    return True
+
+
+def run_challenges(args):
+    for challenge in Challenge.load_all(args.path):
+        challenge.run(args.script, ignore_presets=args.ignore_presets)
+
+    return True
+
+
+def upload_challenges(args):
+    ctfd = CTFd(args.url, args.session, verify=(not args.insecure))
+
+    online = ctfd.list()
+    online_chals = [(chal["name"], chal["category"]) for chal in online]
+
+    success = True
+    new_challenges = {}
+
+    challenges = Challenge.load_all(args.path)
+    for challenge in challenges:
+        print(f'[{challenge.category}] {Style.BRIGHT}{challenge.name} ', end='')
+
+        if (challenge.name, challenge.category) in online_chals:
+            print(Fore.YELLOW + '○')
+        else:
+            try:
+                cid = ctfd.upload(challenge)
+                new_challenges[cid] = challenge
+                print(Fore.GREEN + '✓')
+            except Exception as e:
+                success = False
+                print(Fore.RED + '✗ ' + repr(e))
+                traceback.print_exc()
+
+    online = ctfd.list()
+    online_chals = [(chal["name"], chal["category"]) for chal in online]
+
+    for cid, challenge in new_challenges.items():
+        ctfd.requirements(cid, challenge, online)
+
+    return success
+
+def upgrade(args):
+    # download new code
+    source_code = requests.get(UPSTREAM).text
+
+    # write code
+    path = os.path.realpath(__file__)
+    with open(path, 'w') as ctftool:
+        ctftool.write(source_code)
+
+
+PRESETS = {
+    'docker': {
+        'start': ['docker run -p {port}:{internal} --restart unless-stopped -d {image}'],
+        'kill': ['docker kill `docker ps -f ancestor={image} -q`'],
+        'build': ['docker build . -t {image}']
+    }
+}
+
+PRESET_EXTRA = {
+    'docker': {
+        'port': 8000,
+        'internal': 80,
+        'image': '',
+    }
+}
+
+
+class Challenge:
+    '''
+    Interface to the challenge files and their contained data.
+    '''
+
+    FILE_NAME = 'challenge.json'
+
+    def __init__(self, name, category, path, description='', points=0,
+                 flags='', files=None, requirements=None,
+                 preset=None, scripts=None, extra=None):
+        self.name = name
+        self.category = category
+        self.path = path
+        self.description = from_json_multipart(description)
+        self.points = points
+        self.flags = from_json_multipart(flags)
+        self.files = files or []
+        self.requirements = requirements or []
+
+        self.preset = preset
+        if scripts is None:
+            self.scripts = {}
+        else:
+            self.scripts = {k: from_json_multipart(v) for k, v in scripts.items()}
+        self.extra = extra or {}
+
+    def run(self, script_name, cwd='.', ignore_presets=False):
+        # run defined scripts
+        script = self.scripts.get(script_name)
+        if script:
+            for part in script:
+                part = part.format(**self.extra)
+                subprocess.run(part, shell=True, cwd=self.path)
+
+        # run preset scripts
+        if not ignore_presets:
+            if self.preset in PRESETS and script_name in PRESETS[self.preset]:
+                preset_script = PRESETS[self.preset][script_name]
+                for part in preset_script:
+                    part = part.format(**self.extra)
+                    subprocess.run(part, shell=True, cwd=self.path)
+
+    def load(file):
+        data = json.load(file)
+        ch = Challenge._load_json(data)
+        ch.path = os.path.dirname(file.name)
+        return ch
+
+    def load_all(directories=None):
+        if directories is None:
+            globpath = os.path.join('**', Challenge.FILE_NAME)
+            paths = glob.glob(globpath, recursive=True)
+        else:
+            paths = []
+            for directory in directories:
+                globpath = os.path.join(directory, '**', Challenge.FILE_NAME)
+                paths.extend(glob.glob(globpath, recursive=True))
+
+        for path in paths:
+            with open(path) as f:
+                challenge = Challenge.load(f)
+                yield challenge
+
+    def save(self):
+        os.makedirs(self.path, exist_ok=True)
+        challenge_file = os.path.join(self.path, Challenge.FILE_NAME)
+        with open(challenge_file, 'w') as f:
+            data = self._save_json()
+            json.dump(data, f, indent=4)
+
+    def _load_json(data):
+        ch = Challenge(name=data.get('name', ''),
+                       category=data.get('category', ''),
+                       path=None,
+                       description=data.get('description', ''),
+                       points=data.get('points', 0),
+                       flags=data.get('flags', []),
+                       files=data.get('files', []),
+                       requirements=data.get('requirements', []),
+                       preset=data.get('preset'),
+                       scripts=data.get('scripts', {}),
+                       extra=data.get('extra', {}))
+        return ch
+
+    def _save_json(self):
+        scripts = {k: to_json_multipart(v) for k, v in self.scripts.items()}
+
+        return {
+            'name': self.name,
+            'category': self.category,
+            'description': to_json_multipart(self.description),
+            'points': self.points,
+            'flags': to_json_multipart(self.flags),
+            'files': self.files,
+            'requirements': self.requirements,
+            'preset': self.preset,
+            'scripts': scripts,
+            'extra': self.extra
+        }
+
+    def __str__(self):
+        return self.name
+
+
+def from_json_multipart(obj):
+    if obj is None:
+        return []
+    elif hasattr(obj, 'append'):
+        return obj
+    else:
+        return [obj]
+
+
+def to_json_multipart(li):
+    if len(li) == 0:
+        return ''
+    elif len(li) == 1:
+        return li[0]
+    else:
+        return li
+
+
+class CTFd:
+    """
+    Client for CTFd server.
+
+    This was originally tested with CTFd 2.1.1 on API v1 and should continue
+    to work in the future, as long as the API doesn't change too much.
+
+    Note that this is very hacky - it is near impossible to find any
+    documentation on the CTFd api.
+    """
+
+    NONCE_EXPRESSION = re.compile('var csrf_nonce = *"([a-zA-Z0-9]*)"')
+
+    def __init__(self, url, session_token, verify=True):
+        self.base = url
+
+        self.session = requests.Session()
+        self.session.cookies['session'] = session_token
+        self.verify = verify
+
+        self.nonce = None
+        self._extract_nonce()
+
+    def list(self):
+        headers = {
+            'CSRF-Token': self.nonce
+        }
+
+        resp = self.session.get(self.base + '/api/v1/challenges',
+                                headers=headers, verify=self.verify)
+        resp = resp.json()
+        if 'success' in resp and resp['success']:
+            return resp['data']
+        else:
+            return []
+
+    def upload(self, challenge):
+        headers = {
+            'CSRF-Token': self.nonce
+        }
+
+        # create challenge
+        data = {
+            'name': challenge.name,
+            'category': challenge.category,
+            'state': 'visible',
+            'value': challenge.points,
+            'type': 'standard',
+            'description': '<br>'.join(challenge.description)
+        }
+        resp = self.session.post(self.base + '/api/v1/challenges',
+                                 headers=headers, json=data,
+                                 verify=self.verify)
+        resp = resp.json()
+        if 'success' not in resp or not resp['success']:
+            raise RuntimeError('could not add challenge')
+
+        challenge_id = resp['data']['id']
+
+        # add challenge flags
+        for flag in challenge.flags:
+            data = {
+                'challenge': challenge_id,
+                'content': flag,
+                'type': 'static'
+            }
+            resp = self.session.post(self.base + '/api/v1/flags',
+                                     headers=headers, json=data,
+                                     verify=self.verify)
+            resp = resp.json()
+            if 'success' not in resp or not resp['success']:
+                raise RuntimeError('could not add flag to challenge')
+
+        # upload challenge files
+        for filename in challenge.files:
+            fullfilename = os.path.join(challenge.path, filename)
+            data = {
+                'nonce': self.nonce,
+                'challenge': challenge_id,
+                'type': 'challenge'
+            }
+            files = {
+                'file': (filename, open(fullfilename, 'rb'))
+            }
+
+            resp = self.session.post(self.base + '/api/v1/files',
+                                     data=data, files=files,
+                                     verify=self.verify)
+            resp = resp.json()
+
+            if 'success' not in resp or not resp['success']:
+                raise RuntimeError('could not add file to challenge')
+
+        # solve the challenge
+        if challenge.flags:
+            data = {
+                'challenge_id': challenge_id,
+                'submission': challenge.flags[0]
+            }
+            self.session.post(self.base + '/api/v1/challenges/attempt',
+                            headers=headers, json=data,
+                            verify=self.verify)
+
+        return challenge_id
+
+
+    def requirements(self, challenge_id, challenge, online):
+        headers = {
+            'CSRF-Token': self.nonce
+        }
+
+        # determine the requirement ids
+        reqs = []
+        for req in challenge.requirements:
+            found = False
+            for chal in online:
+                specifier = chal['category'] + '/' + chal['name']
+                if specifier == req:
+                    reqs.append(chal['id'])
+                    found = True
+                    break
+            if not found:
+                raise RuntimeError("could not find challenge " + req)
+
+        # link the requirements
+        if reqs:
+            data = {
+                'requirements': {
+                    'prerequisites': reqs
+                }
+            }
+            resp = self.session.patch(self.base + '/api/v1/challenges/' + str(challenge_id),
+                                    headers=headers, json=data,
+                                    verify=self.verify)
+
+    def _extract_nonce(self):
+        resp = self.session.get(self.base, verify=self.verify)
+        matches = CTFd.NONCE_EXPRESSION.search(resp.content.decode())
+        if matches:
+            self.nonce = matches.group(1)
+
+
+if __name__ == "__main__":
+    # disable urllib warnings
+    requests.packages.urllib3.disable_warnings()
+
+    # run with colorama
+    colorama.init(autoreset=True)
+    try:
+        main()
+    except Exception:
+        traceback.print_exc()
+    finally:
+        colorama.deinit()

@@ -1,0 +1,21 @@
+{
+    "name": "Login",
+    "category": "challenge",
+    "description": [
+        "I've set up a secret login portal! Bet you can't hack into it!",
+        "<a href='http://host:8080'>link</a>"
+    ],
+    "points": 1,
+    "flags": "HTM{SPEEKTOME}",
+    "files": [],
+    "requirements": [
+        "challenge/Badge"
+    ],
+    "preset": "docker",
+    "scripts": {},
+    "extra": {
+        "port": 8080,
+        "internal": 8000,
+        "image": "ctf-login"
+    }
+}

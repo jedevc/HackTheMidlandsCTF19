@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+        {% if title %}
+        <title>Hack The Midlands Secret - {{ title }}</title>
+        {% else %}
+        <title>Hack The Midlands Secret</title>
+        {% endif %}
+
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/2.4.1/semantic.min.js"></script>
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/2.4.1/semantic.min.css">
+
+        <style type="text/css">
+            body {
+                background: repeating-linear-gradient(
+					45deg,
+					#348ddd,
+					#348ddd 40px,
+					#3f92db 40px,
+					#3f92db 80px
+				);
+            }
+            body > .grid {
+                height: 100%;
+            }
+            .image {
+                margin-top: -100px;
+            }
+            .column {
+                max-width: 450px;
+            }
+        </style>
+        
+        {% block head %}
+        {% endblock %}
+    </head>
+    <body>
+        <div class="ui middle aligned center aligned grid">
+            <div class="column">
+                <img src="https://hackthemidlands.com/images/htmlogo.png" style="width: 100%;">
+
+                <h2 class="ui image header" style="color:white">
+                    <div class="content">
+                        {{ title }}
+                    </div>
+                </h2>
+
+                {% if message %}
+                <div class="ui message">
+                    {% autoescape false %}
+                    {{ message }}
+                    {% endautoescape %}
+                </div>
+                {% endif %}
+
+                {% if error %}
+                <div class="ui negative message">
+                    {{ error }}
+                </div>
+
+                {% endif %}
+                {% block content %}
+                {% endblock %}
+            </div>
+        </div>
+    </body>
+</html>

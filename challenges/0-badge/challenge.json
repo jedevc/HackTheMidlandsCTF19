@@ -1,0 +1,12 @@
+{
+    "name": "Badge",
+    "category": "challenge",
+    "description": "There's a secret code hidden somewhere on the badge...",
+    "points": 1,
+    "flags": "HTM{wh47_H47H_g0D_Wr0UGh7}",
+    "files": [],
+    "requirements": [],
+    "preset": null,
+    "scripts": {},
+    "extra": {}
+}

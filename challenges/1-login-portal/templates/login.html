@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<form action="/login" method="post" class="ui large form">
+    <div class="ui stacked segment">
+        <div class="field">
+            <div class="ui left icon input">
+                <i class="user icon"></i>
+                <input type="text" name="username" placeholder="Username">
+            </div>
+        </div>
+        <div class="field">
+            <div class="ui left icon input">
+                <i class="lock icon"></i>
+                <input type="password" name="password" placeholder="Password">
+            </div>
+        </div>
+        <div class="field">
+            <a href="#" onclick="sendHint()">hint</a>
+        </div>
+        <input type="submit" value="Login" class="ui fluid large blue button">
+    </div>
+</form>
+
+{% endblock %}
+
+{% block head %}
+<script>
+    function sendHint() {
+        alert("Woops! I haven't properly implemented password security yet, but you should be able to login with that secret cookie -- Tom");
+    }
+</script>
+{% endblock %}

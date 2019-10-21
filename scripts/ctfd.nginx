@@ -1,0 +1,12 @@
+server {
+    server_name ctf.hackthemidlands.com
+    client_max_body_size 25M;
+
+    location / {
+        proxy_pass http://localhost:8000;
+        proxy_set_header X-Forwarded-Host $server_name;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        add_header P3P 'CP="ALL DSP COR PSAa PSDa OUR NOR ONL UNI COM NAV"';
+    }
+}
