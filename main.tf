@@ -70,7 +70,7 @@ resource "google_compute_instance" "ctfd" {
     connection {
       type = "ssh"
       user = "root"
-      host = "${google_compute_instance.ctfd.network_interface.0.access_config.0.nat_ip}"
+      host = "${google_compute_address.ctfd_ip.address}"
       private_key = "${tls_private_key.connection_key.private_key_pem}"
     }
   }
@@ -93,6 +93,10 @@ output "ctfd-ip" {
   value = "${google_compute_address.ctfd_ip.address}"
 }
 
+resource "google_compute_address" "challenge_ip" {
+  name = "challenge-address"
+}
+
 resource "google_compute_instance" "challenge" {
   name         = "ctf-resources-${random_id.challenge.hex}"
   machine_type = "n1-standard-1"
@@ -113,7 +117,7 @@ resource "google_compute_instance" "challenge" {
     connection {
       type = "ssh"
       user = "root"
-      host = "${google_compute_instance.challenge.network_interface.0.access_config.0.nat_ip}"
+      host = "${google_compute_address.challenge_ip.address}"
       private_key = "${tls_private_key.connection_key.private_key_pem}"
     }
   }
@@ -125,7 +129,7 @@ resource "google_compute_instance" "challenge" {
     connection {
       type = "ssh"
       user = "root"
-      host = "${google_compute_instance.challenge.network_interface.0.access_config.0.nat_ip}"
+      host = "${google_compute_address.challenge_ip.address}"
       private_key = "${tls_private_key.connection_key.private_key_pem}"
     }
   }
@@ -135,6 +139,7 @@ resource "google_compute_instance" "challenge" {
   network_interface {
     network = "${google_compute_network.challenge_network.name}"
     access_config {
+      nat_ip = "${google_compute_address.challenge_ip.address}"
     }
   }
 
@@ -144,5 +149,5 @@ resource "google_compute_instance" "challenge" {
 }
 
 output "challenge-ip" {
-  value = "${google_compute_instance.challenge.network_interface.0.access_config.0.nat_ip}"
+  value = "${google_compute_address.challenge_ip.address}"
 }
