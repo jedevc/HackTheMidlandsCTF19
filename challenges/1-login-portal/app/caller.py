@@ -9,7 +9,7 @@ from twilio.twiml.voice_response import Play, VoiceResponse
 
 NUMBER_REGEX = re.compile(r'(\+44|0)\d+')
 
-server = "http://" + requests.get("https://api.ipify.org?format=text").text
+server = "http://challenge.ctf.hackthemidlands.com:8080"
 print("server: " + server)
 
 with open('config.json') as config_file:
