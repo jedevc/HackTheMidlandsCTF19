@@ -5,7 +5,7 @@ from flask import request
 import codecs
 import base64
 
-from .caller import call, caller
+from .caller import caller, number
 
 app = Flask("login")
 app.register_blueprint(caller)
@@ -56,25 +56,11 @@ def logout():
 def verification():
     if check_data(request.cookies.get('data'), 'issignedin'):
         if check_data(request.cookies.get('data'), 'isadmin'):
-            if request.method == 'GET':
-                args = request.args
-            if request.method == 'POST':
-                args = request.form
-
-            if 'phone' in args and len(args['phone']) != 0:
-                call(args['phone'])
-                return flask.render_template(
-                        'secret.html',
-                        title='identity verification underway',
-                        message='calling you now...',
-                )
-            else:
-                msg = 'logged in! please verify your identity'
-                return flask.render_template(
-                        'verify.html',
-                        title='identity verification',
-                        message='please enter your phone number so we can verify your identity:'
-                )
+            return flask.render_template(
+                'secret.html',
+                title='identify verifier',
+                message='please call ' + number + ' to verify your identity'
+            )
         else:
             title = 'unauthorized access'
             msg = "you're logged in, but not as the admin..."
