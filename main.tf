@@ -98,7 +98,7 @@ resource "google_compute_address" "challenge_ip" {
 }
 
 resource "google_compute_instance" "challenge" {
-  name         = "ctf-resources-${random_id.challenge.hex}"
+  name         = "ctf-challenges-${random_id.challenge.hex}"
   machine_type = "n1-standard-1"
 
   boot_disk {
