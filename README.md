@@ -7,6 +7,8 @@ programming and security.
 It's also got a whole bunch of other stuff, like CTFd site resources,
 deployment scripts, etc.
 
+Checkout the writeups at the [wiki](https://github.com/jedevc/HackTheMidlandsCTF19/wiki).
+
 Please feel free to play around with all the challenges, use them yourself or
 let them be inspiration for your own challenges.
 
