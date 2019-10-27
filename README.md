@@ -41,7 +41,7 @@ onto Google Cloud. It will deploy the CTF instance to a VM behind a static IP
 and the challenge instance to a normal VM.
 
 Yes, the scripts are a little messy, all the deployment stuff was put
-together quite quickly.
+together quite quickly. You probably don't want to use them, but if you do:
 
     $ terraform init
     $ terraform apply
